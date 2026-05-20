@@ -1,4 +1,6 @@
 import numpy as np
+from time import perf_counter
+from tqdm import tqdm
 from scipy.integrate import solve_ivp
 
 
@@ -124,12 +126,11 @@ def signatures_via_chen_batch(paths, depth):
     return signatures
 
 
-# Example usage with your data
 if __name__ == "__main__":
    
     # Create a batch with slight variations
     np.random.seed(41)
-    num_paths = 10
+    num_paths = 20
 
     num_times, dim = 30, 4
     paths_batch = np.random.uniform(
@@ -140,19 +141,31 @@ if __name__ == "__main__":
    
     # Compute signatures for all paths
     depth = 3
-    signatures_cde = signatures_via_cde_batch(paths_batch, depth)
-    signatures_chen = signatures_via_chen_batch(paths_batch, depth)
+    num_repeats = 16
+
+    cde_total_latency = 0.0
+    for _ in tqdm(range(num_repeats), desc="CDE", unit="run"):
+        start = perf_counter()
+        signatures_cde = signatures_via_cde_batch(paths_batch, depth)
+        cde_total_latency += perf_counter() - start
+
+    chen_total_latency = 0.0
+    for _ in tqdm(range(num_repeats), desc="Chen", unit="run"):
+        start = perf_counter()
+        signatures_chen = signatures_via_chen_batch(paths_batch, depth)
+        chen_total_latency += perf_counter() - start
 
     first_cde = signatures_cde[0]
     first_chen = signatures_chen[0]
-    first_diff = first_cde - first_chen
 
     print(f"Computed signatures for {num_paths} paths")
     print(f"Signature dimension: {signatures_cde.shape[1]}")
+    print(f"Total CDE latency over {num_repeats} runs: {cde_total_latency:.6f} s")
+    print(f"Total Chen latency over {num_repeats} runs: {chen_total_latency:.6f} s")
+    print()
     print("First path: CDE signature")
     print(first_cde)
     print()
     print("First path: Chen signature")
     print(first_chen)
-    print()
-    print(f"First path: error norm = {np.linalg.norm(first_diff):.6e}")
+
